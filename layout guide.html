@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Power BI Wireframe — Eicher Motors</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #EBEBEB;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 32px;
+    color: #222;
+  }
+
+  /* ── Doc header ── */
+  .doc-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .doc-title { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: #444; }
+  .doc-meta  { font-size: 9px; color: #999; }
+
+  .doc-divider {
+    height: 1px;
+    background: #ccc;
+    margin-bottom: 24px;
+  }
+
+  /* ── 2-col grid ── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* ── Page container (1280×720 aspect) ── */
+  .page {
+    background: #fff;
+    border: 1.5px solid #bbb;
+    border-radius: 3px;
+    overflow: hidden;
+    aspect-ratio: 16/9;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ── Top chrome bar (simulates PBI header + nav) ── */
+  .chrome {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: #f0f0f0;
+    border-bottom: 1px solid #ccc;
+    flex-shrink: 0;
+  }
+  .page-badge {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border: 1px solid #bbb;
+    border-radius: 2px;
+    color: #555;
+    background: #fff;
+  }
+  .page-badge.p1 { border-color: #2563EB; color: #2563EB; }
+  .page-badge.p2 { border-color: #B45309; color: #B45309; }
+  .page-badge.p3 { border-color: #047857; color: #047857; }
+  .page-badge.p4 { border-color: #64748B; color: #64748B; }
+
+  .page-nav {
+    display: flex;
+    gap: 3px;
+    margin-left: auto;
+  }
+  .nav-btn {
+    font-size: 7px;
+    padding: 2px 5px;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    color: #999;
+    background: #fff;
+  }
+  .nav-btn.active { border-color: #888; color: #333; background: #e8e8e8; }
+
+  /* ── Left accent strip ── */
+  .accent-strip {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .p1 .accent-strip { background: #2563EB; }
+  .p2 .accent-strip { background: #B45309; }
+  .p3 .accent-strip { background: #047857; }
+  .p4 .accent-strip { background: #64748B; }
+
+  /* ── Canvas area ── */
+  .canvas {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 6px 7px 6px 10px;
+    gap: 5px;
+    overflow: hidden;
+  }
+
+  /* ── Generic wireframe block ── */
+  .box {
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    gap: 2px;
+  }
+
+  /* diagonal hatch for chart areas */
+  .box.chart::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 6px,
+      rgba(0,0,0,0.04) 6px,
+      rgba(0,0,0,0.04) 7px
+    );
+  }
+
+  /* dot pattern for KPI cards */
+  .box.kpi::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px);
+    background-size: 8px 8px;
+  }
+
+  .lbl {
+    font-size: 7px;
+    color: #888;
+    text-align: center;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    z-index: 1;
+    line-height: 1.4;
+    padding: 0 4px;
+  }
+  .lbl strong {
+    display: block;
+    color: #444;
+    font-size: 8px;
+    letter-spacing: 0;
+    text-transform: none;
+    margin-bottom: 1px;
+  }
+  .lbl em {
+    display: block;
+    font-style: normal;
+    color: #bbb;
+    font-size: 6px;
+    margin-top: 1px;
+  }
+
+  /* feature tag — shows which advanced PBI feature the box uses */
+  .feat {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    font-size: 6px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.3px;
+    z-index: 2;
+    white-space: nowrap;
+  }
+  .feat.blue   { background: rgba(37,99,235,0.1);  color: #2563EB; border: 1px solid rgba(37,99,235,0.25); }
+  .feat.amber  { background: rgba(180,83,9,0.1);   color: #B45309; border: 1px solid rgba(180,83,9,0.25); }
+  .feat.green  { background: rgba(4,120,87,0.1);   color: #047857; border: 1px solid rgba(4,120,87,0.25); }
+  .feat.slate  { background: rgba(100,116,139,0.1);color: #64748B; border: 1px solid rgba(100,116,139,0.25); }
+  .feat.purple { background: rgba(109,40,217,0.1); color: #6D28D9; border: 1px solid rgba(109,40,217,0.25); }
+  .feat.red    { background: rgba(185,28,28,0.1);  color: #B91C1C; border: 1px solid rgba(185,28,28,0.25); }
+
+  /* row / col layout helpers */
+  .row { display: flex; gap: 5px; }
+  .col { display: flex; flex-direction: column; gap: 5px; }
+
+  /* slicer style */
+  .slicer {
+    border: 1px dashed #ccc;
+    border-radius: 2px;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .slicer .lbl { text-align: left; }
+  .slicer-track {
+    flex: 1;
+    height: 2px;
+    background: #ddd;
+    border-radius: 1px;
+    position: relative;
+  }
+  .slicer-fill {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 15%; right: 10%;
+    background: #888;
+    border-radius: 1px;
+  }
+
+  /* divider line inside canvas */
+  .divider {
+    height: 1px;
+    background: #e8e8e8;
+    flex-shrink: 0;
+  }
+
+  /* bottom-left page stamp */
+  .stamp {
+    position: absolute;
+    bottom: 4px;
+    left: 10px;
+    font-size: 6px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Legend strip below each page ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 7px 10px;
+    border-top: 1px solid #ddd;
+    background: #f7f7f7;
+  }
+  .leg-item {
+    font-size: 7px;
+    padding: 2px 6px;
+    border: 1px solid #ddd;
+    border-radius: 2px;
+    color: #666;
+    background: #fff;
+    letter-spacing: 0.2px;
+  }
+  .leg-item.blue   { border-color: rgba(37,99,235,0.3);  color: #2563EB; }
+  .leg-item.amber  { border-color: rgba(180,83,9,0.3);   color: #B45309; }
+  .leg-item.green  { border-color: rgba(4,120,87,0.3);   color: #047857; }
+  .leg-item.purple { border-color: rgba(109,40,217,0.3); color: #6D28D9; }
+  .leg-item.red    { border-color: rgba(185,28,28,0.3);  color: #B91C1C; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <span class="doc-title">Power BI Report Wireframe · Eicher Motors (EICHERMOT.NS)</span>
+  <span class="doc-meta">4 pages · 1280 × 720 · hourly NSE data</span>
+</div>
+<div class="doc-divider"></div>
+
+<div class="grid">
+
+  <!-- ═══════════════════════════════════════
+       PAGE 1 — SUMMARY
+  ═══════════════════════════════════════ -->
+  <div>
+    <div class="page p1">
+      <div class="accent-strip"></div>
+
+      <!-- Chrome / Nav -->
+      <div class="chrome">
+        <span class="page-badge p1">01 · Summary</span>
+        <div class="page-nav">
+          <span class="nav-btn active">Summary</span>
+          <span class="nav-btn">Technicals</span>
+          <span class="nav-btn">Returns</span>
+          <span class="nav-btn">Data</span>
+        </div>
+      </div>
+
+      <div class="canvas">
+
+        <!-- Slicer: Relative date (synced) -->
+        <div class="slicer" style="height:18px">
+          <span class="lbl">Date Range</span>
+          <div class="slicer-track"><div class="slicer-fill"></div></div>
+          <span class="lbl">Last 90 Days</span>
+          <span class="feat blue">Sync Slicer · Relative Date</span>
+        </div>
+
+        <!-- KPI row -->
+        <div class="row" style="height:52px;flex-shrink:0">
+
+          <!-- New Card with sparkline -->
+          <div class="box kpi" style="flex:1.4">
+            <span class="feat blue">New Card · Sparkline</span>
+            <span class="lbl"><strong>₹ CMP</strong>Close · vs Yesterday<em>Sparkline embedded</em></span>
+          </div>
+
+          <div class="box kpi" style="flex:1">
+            <span class="feat blue">Cond. Format · Color</span>
+            <span class="lbl"><strong>Day Change %</strong>+/− vs prev close</span>
+          </div>
+
+          <div class="box kpi" style="flex:1">
+            <span class="lbl"><strong>YTD Return %</strong>Jan 1 → today</span>
+          </div>
+
+          <div class="box kpi" style="flex:1">
+            <span class="lbl"><strong>52W High</strong>trailing 252 days</span>
+          </div>
+
+          <div class="box kpi" style="flex:1">
+            <span class="lbl"><strong>52W Low</strong>trailing 252 days</span>
+          </div>
+
+          <!-- RSI card: cond background -->
+          <div class="box kpi" style="flex:1;border-style:dashed">
+            <span class="feat blue">Cond. BG · RSI Signal</span>
+            <span class="lbl"><strong>RSI (14)</strong>Signal as reference label</span>
+          </div>
+
+        </div>
+
+        <!-- Price + MA line chart -->
+        <div class="box chart" style="flex:1">
+          <span class="feat blue">Zoom Slider · Tooltip Page</span>
+          <span class="lbl"><strong>Close + MA20 + MA50</strong>Line chart · hover → tooltip page</span>
+        </div>
+
+        <!-- Volume + signals row -->
+        <div class="row" style="height:52px;flex-shrink:0">
+
+          <div class="box chart" style="flex:2">
+            <span class="feat purple">Small Multiples · Day of Week</span>
+            <span class="lbl"><strong>Volume</strong>Split by weekday · cond. bar color</span>
+          </div>
+
+          <div class="box kpi" style="flex:1">
+            <span class="feat blue">Bookmark · Button</span>
+            <span class="lbl"><strong>Trend Signal</strong>DAX label measure</span>
+          </div>
+
+          <div class="box kpi" style="flex:1">
+            <span class="lbl"><strong>MACD Signal</strong>DAX label measure</span>
+          </div>
+
+        </div>
+
+      </div>
+      <div class="stamp">CANVAS 1280 × 720 · BACKGROUND PNG LAYER</div>
+    </div>
+
+    <div class="legend">
+      <span class="leg-item blue">New Card + Sparkline</span>
+      <span class="leg-item blue">Conditional Format</span>
+      <span class="leg-item purple">Small Multiples</span>
+      <span class="leg-item blue">Sync Slicer</span>
+      <span class="leg-item blue">Zoom Slider</span>
+      <span class="leg-item blue">Tooltip Page</span>
+      <span class="leg-item">Bookmark Buttons</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       PAGE 2 — TECHNICAL ANALYSIS
+  ═══════════════════════════════════════ -->
+  <div>
+    <div class="page p2">
+      <div class="accent-strip"></div>
+
+      <div class="chrome">
+        <span class="page-badge p2">02 · Technical Analysis</span>
+        <div class="page-nav">
+          <span class="nav-btn">Summary</span>
+          <span class="nav-btn active">Technicals</span>
+          <span class="nav-btn">Returns</span>
+          <span class="nav-btn">Data</span>
+        </div>
+      </div>
+
+      <div class="canvas">
+
+        <!-- Slicer + Field Parameter selector -->
+        <div class="row" style="height:18px;flex-shrink:0">
+          <div class="slicer" style="flex:2">
+            <span class="lbl">Date Range</span>
+            <div class="slicer-track"><div class="slicer-fill" style="left:25%;right:5%"></div></div>
+            <span class="lbl">Synced · Page 1</span>
+          </div>
+          <div class="slicer" style="flex:1.4;border-style:dashed">
+            <span class="feat amber">Field Parameter</span>
+            <span class="lbl">Indicator: Close · MA20 · MA50 · MA200 · BB · VWAP</span>
+          </div>
+        </div>
+
+        <!-- RSI panel -->
+        <div class="box chart" style="flex:1">
+          <span class="feat amber">Analytics Pane · Constant Lines · Shading</span>
+          <span class="lbl"><strong>RSI (14)</strong>Ref lines at 70 (overbought) + 30 (oversold) · band shading · avg line</span>
+        </div>
+
+        <!-- MACD combo -->
+        <div class="box chart" style="flex:1">
+          <span class="feat amber">Combo Chart · DAX Cond. Bar Color</span>
+          <span class="lbl"><strong>MACD · Signal Line · Histogram</strong>Columns = histogram · Lines = MACD + signal · bars green/red via DAX</span>
+        </div>
+
+        <!-- BB + ATR row -->
+        <div class="row" style="flex:1">
+
+          <div class="box chart" style="flex:1.6">
+            <span class="feat amber">Field Parameter · Band Area</span>
+            <span class="lbl"><strong>Bollinger Bands</strong>Close · BB Upper · BB Lower · band area fill</span>
+          </div>
+
+          <div class="box chart" style="flex:1">
+            <span class="lbl"><strong>ATR (14)</strong>Area chart · volatility expansion</span>
+          </div>
+
+        </div>
+
+      </div>
+      <div class="stamp">CANVAS 1280 × 720 · BACKGROUND PNG LAYER</div>
+    </div>
+
+    <div class="legend">
+      <span class="leg-item amber">Field Parameters</span>
+      <span class="leg-item amber">Analytics Pane Lines</span>
+      <span class="leg-item amber">Band Shading</span>
+      <span class="leg-item amber">MACD Combo Chart</span>
+      <span class="leg-item amber">DAX Conditional Colors</span>
+      <span class="leg-item blue">Zoom Slider</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       PAGE 3 — RETURNS & RISK
+  ═══════════════════════════════════════ -->
+  <div>
+    <div class="page p3">
+      <div class="accent-strip"></div>
+
+      <div class="chrome">
+        <span class="page-badge p3">03 · Returns &amp; Risk</span>
+        <div class="page-nav">
+          <span class="nav-btn">Summary</span>
+          <span class="nav-btn">Technicals</span>
+          <span class="nav-btn active">Returns</span>
+          <span class="nav-btn">Data</span>
+        </div>
+      </div>
+
+      <div class="canvas">
+
+        <!-- Risk KPI row -->
+        <div class="row" style="height:46px;flex-shrink:0">
+
+          <div class="box kpi" style="flex:1">
+            <span class="feat green">LOOKUPVALUE DAX</span>
+            <span class="lbl"><strong>Sharpe Ratio</strong>from Dashboard table</span>
+          </div>
+
+          <div class="box kpi" style="flex:1;border-style:dashed">
+            <span class="feat red">LOOKUPVALUE DAX</span>
+            <span class="lbl"><strong>Max Drawdown</strong>from Dashboard table</span>
+          </div>
+
+          <div class="box kpi" style="flex:1">
+            <span class="lbl"><strong>YTD Return %</strong></span>
+          </div>
+
+          <div class="box kpi" style="flex:1">
+            <span class="lbl"><strong>Volatility (Ann.)</strong></span>
+          </div>
+
+          <!-- Smart narrative -->
+          <div class="box kpi" style="flex:1.6;border-style:dashed;align-items:flex-start;padding:5px 7px">
+            <span class="feat green">Smart Narrative · AI</span>
+            <span class="lbl" style="text-align:left"><strong>Auto Insight</strong>AI-generated text · dynamic values embedded</span>
+          </div>
+
+        </div>
+
+        <!-- Monthly returns + Drawdown row -->
+        <div class="row" style="flex:1.2">
+
+          <div class="box chart" style="flex:1.4">
+            <span class="feat green">Cond. Format · Green/Red Bars</span>
+            <span class="lbl"><strong>Monthly Returns %</strong>Bar chart · sorted by MonthSort · green pos / red neg</span>
+          </div>
+
+          <div class="box chart" style="flex:1">
+            <span class="feat red">Area Chart · Fill Below Zero</span>
+            <span class="lbl"><strong>Drawdown from Peak</strong>Red fill area · trough labelled</span>
+          </div>
+
+        </div>
+
+        <!-- Heatmap matrix -->
+        <div class="box chart" style="flex:1.4">
+          <span class="feat green">Matrix · Gradient Cond. Format · Drillthrough</span>
+          <span class="lbl"><strong>Year × Month Return Heatmap</strong>Rows = Year · Columns = MonthAbbr (sorted by MonthNum) · Values = Return_% · Red → White → Green gradient · right-click → Drillthrough → Monthly Detail</span>
+        </div>
+
+      </div>
+      <div class="stamp">CANVAS 1280 × 720 · BACKGROUND PNG LAYER</div>
+    </div>
+
+    <div class="legend">
+      <span class="leg-item green">Smart Narrative</span>
+      <span class="leg-item green">Matrix Heatmap</span>
+      <span class="leg-item green">Gradient Cond. Format</span>
+      <span class="leg-item purple">Drillthrough Page</span>
+      <span class="leg-item red">Drawdown Area</span>
+      <span class="leg-item">LOOKUPVALUE DAX</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       PAGE 4 — DATA TABLE
+  ═══════════════════════════════════════ -->
+  <div>
+    <div class="page p4">
+      <div class="accent-strip"></div>
+
+      <div class="chrome">
+        <span class="page-badge p4">04 · Data Table</span>
+        <div class="page-nav">
+          <span class="nav-btn">Summary</span>
+          <span class="nav-btn">Technicals</span>
+          <span class="nav-btn">Returns</span>
+          <span class="nav-btn active">Data</span>
+        </div>
+      </div>
+
+      <div class="canvas">
+
+        <!-- Search + slicer + bookmark buttons -->
+        <div class="row" style="height:18px;flex-shrink:0">
+
+          <div class="slicer" style="flex:0.9">
+            <span class="lbl">🔍 Search filter</span>
+          </div>
+
+          <div class="slicer" style="flex:1.4">
+            <span class="lbl">Date</span>
+            <div class="slicer-track"><div class="slicer-fill" style="left:10%;right:5%"></div></div>
+          </div>
+
+          <div class="box" style="flex:0.8;flex-direction:row;gap:3px;padding:0 5px;background:#f0f0f0;border-style:dashed">
+            <span class="feat slate">Bookmark Buttons</span>
+            <span class="lbl">Show All</span>
+            <div style="width:1px;height:60%;background:#ccc;"></div>
+            <span class="lbl">High Vol</span>
+          </div>
+
+        </div>
+
+        <!-- Table -->
+        <div class="box" style="flex:1;align-items:flex-start;justify-content:flex-start;padding:0;overflow:hidden">
+          <span class="feat slate">Data Bars · Icon Rules · Top N Filter</span>
+
+          <!-- Header row -->
+          <div style="display:flex;width:100%;background:#f0f0f0;border-bottom:1.5px solid #ccc;padding:3px 6px;gap:4px;flex-shrink:0">
+            <span class="lbl" style="flex:1.4;text-align:left;color:#444">Datetime</span>
+            <span class="lbl" style="flex:0.8">Open</span>
+            <span class="lbl" style="flex:0.8">High</span>
+            <span class="lbl" style="flex:0.8">Low</span>
+            <span class="lbl" style="flex:0.8">Close</span>
+            <span class="lbl" style="flex:1">Volume</span>
+            <span class="lbl" style="flex:0.9">Return<em style="color:#2563EB">data bar</em></span>
+            <span class="lbl" style="flex:0.8">RSI<em style="color:#2563EB">icon</em></span>
+            <span class="lbl" style="flex:0.8">MACD</span>
+            <span class="lbl" style="flex:0.7">ATR</span>
+          </div>
+
+          <!-- Placeholder rows -->
+          <div style="display:flex;width:100%;padding:3px 6px;gap:4px;border-bottom:1px solid #eee">
+            <span class="lbl" style="flex:1.4;text-align:left;color:#bbb">07 Mar 26 15:15</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <!-- volume data bar -->
+            <div style="flex:1;display:flex;align-items:center;gap:2px">
+              <div style="height:5px;width:65%;background:rgba(37,99,235,0.25);border-radius:1px"></div>
+            </div>
+            <!-- return data bar -->
+            <div style="flex:0.9;display:flex;align-items:center;gap:2px">
+              <div style="height:5px;width:50%;background:rgba(4,120,87,0.35);border-radius:1px"></div>
+            </div>
+            <!-- RSI icon -->
+            <span class="lbl" style="flex:0.8;color:#B45309">⚠ 72</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <span class="lbl" style="flex:0.7;color:#bbb">—</span>
+          </div>
+
+          <div style="display:flex;width:100%;padding:3px 6px;gap:4px;border-bottom:1px solid #eee;background:#f9f9f9">
+            <span class="lbl" style="flex:1.4;text-align:left;color:#bbb">07 Mar 26 14:15</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <div style="flex:1;display:flex;align-items:center">
+              <div style="height:5px;width:40%;background:rgba(37,99,235,0.25);border-radius:1px"></div>
+            </div>
+            <div style="flex:0.9;display:flex;align-items:center">
+              <div style="height:5px;width:25%;background:rgba(185,28,28,0.35);border-radius:1px"></div>
+            </div>
+            <span class="lbl" style="flex:0.8;color:#047857">✓ 28</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <span class="lbl" style="flex:0.7;color:#bbb">—</span>
+          </div>
+
+          <div style="display:flex;width:100%;padding:3px 6px;gap:4px;border-bottom:1px solid #eee">
+            <span class="lbl" style="flex:1.4;text-align:left;color:#bbb">07 Mar 26 13:15</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span><span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span><span class="lbl" style="flex:0.8;color:#bbb">—</span>
+            <div style="flex:1;display:flex;align-items:center">
+              <div style="height:5px;width:80%;background:rgba(37,99,235,0.25);border-radius:1px"></div>
+            </div>
+            <div style="flex:0.9;display:flex;align-items:center">
+              <div style="height:5px;width:60%;background:rgba(4,120,87,0.35);border-radius:1px"></div>
+            </div>
+            <span class="lbl" style="flex:0.8;color:#bbb">→ 55</span>
+            <span class="lbl" style="flex:0.8;color:#bbb">—</span><span class="lbl" style="flex:0.7;color:#bbb">—</span>
+          </div>
+
+          <!-- more rows placeholder -->
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;width:100%">
+            <span class="lbl" style="color:#ccc">· · · 3,525 more rows · · ·</span>
+          </div>
+
+          <!-- pagination bar -->
+          <div style="width:100%;border-top:1px solid #eee;padding:3px 8px;background:#f7f7f7;display:flex;justify-content:center">
+            <span class="lbl" style="color:#bbb">← Page 1 of 504 →</span>
+          </div>
+        </div>
+
+        <!-- Tooltip page reference note -->
+        <div class="box" style="height:16px;flex-direction:row;gap:6px;background:#f5f5f5;border-style:dashed;flex-shrink:0">
+          <span class="feat slate">Performance Analyzer · check before publish</span>
+          <span class="lbl">Drillthrough enabled · right-click any row → Monthly Detail</span>
+        </div>
+
+      </div>
+      <div class="stamp">CANVAS 1280 × 720 · BACKGROUND PNG LAYER</div>
+    </div>
+
+    <div class="legend">
+      <span class="leg-item">Paginated Table</span>
+      <span class="leg-item blue">Data Bars</span>
+      <span class="leg-item amber">Icon Rules</span>
+      <span class="leg-item">Top N Filter</span>
+      <span class="leg-item">Bookmark Buttons</span>
+      <span class="leg-item purple">Drillthrough</span>
+      <span class="leg-item">Performance Analyzer</span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

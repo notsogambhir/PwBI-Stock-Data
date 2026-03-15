@@ -1,0 +1,16 @@
+{
+  "name": "Eicher Stock Theme",
+  "dataColors": ["#2563EB", "#10B981", "#EF4444", "#F59E0B", "#8B5CF6", "#06B6D4"],
+  "background": "#0F172A",
+  "foreground": "#E2E8F0",
+  "tableAccent": "#2563EB",
+  "visualStyles": {
+    "*": {
+      "*": {
+        "fontFamily": [{ "value": "Segoe UI" }],
+        "fontSize": [{ "value": 11 }],
+        "background": [{ "color": { "solid": { "color": "#111827" } } }]
+      }
+    }
+  }
+}
