@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eicher Motors — Stock Analysis Dashboard</title>
+  <meta name="description" content="Real-time Eicher Motors (EICHERMOT.NS) stock analysis dashboard with technical indicators, risk metrics, and interactive charts.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>📊</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading show" id="loading">
+  <div class="loader-ring">
+    <div></div><div></div><div></div><div></div>
+  </div>
+  <div class="loading-brand">EICHERMOT.NS</div>
+  <div class="loading-text">Initializing dashboard…</div>
+  <div class="loading-bar"><div class="loading-bar-fill" id="load-progress"></div></div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard" style="display:none">
+
+  <!-- Header -->
+  <header class="dash-header" id="dash-header">
+    <div class="dash-live"></div>
+    <div class="dash-ticker">EICHERMOT.NS</div>
+    <div>
+      <div class="dash-name">Eicher Motors Limited</div>
+      <div class="dash-sub">NSE · Hourly Data · Auto-computed indicators</div>
+    </div>
+    <div class="header-right">
+      <div class="server-badge" id="server-badge">
+        <span class="server-dot"></span>
+        <span>API Connected</span>
+      </div>
+      <div class="dash-refresh" id="refresh-ts"></div>
+    </div>
+  </header>
+
+  <!-- Tab bar -->
+  <nav class="tab-bar" id="tab-bar">
+    <div class="tab t1 active" data-tab="1">
+      <span class="tab-icon">◈</span> Summary
+    </div>
+    <div class="tab t2" data-tab="2">
+      <span class="tab-icon">◆</span> Technical Analysis
+    </div>
+    <div class="tab t3" data-tab="3">
+      <span class="tab-icon">◇</span> Returns &amp; Risk
+    </div>
+    <div class="tab t4" data-tab="4">
+      <span class="tab-icon">▦</span> Data Table
+    </div>
+  </nav>
+
+  <!-- Filter bar -->
+  <div class="filter-bar" id="filter-bar">
+    <span class="filter-label">RANGE</span>
+    <button class="preset-btn" data-days="7">7D</button>
+    <button class="preset-btn" data-days="30">30D</button>
+    <button class="preset-btn active" data-days="90">90D</button>
+    <button class="preset-btn" data-days="180">180D</button>
+    <button class="preset-btn" data-days="365">1Y</button>
+    <button class="preset-btn" data-days="9999">All</button>
+    <div class="filter-sep"></div>
+    <input type="date" class="date-input" id="date-from">
+    <span class="date-arrow">→</span>
+    <input type="date" class="date-input" id="date-to">
+    <span class="filter-count" id="bar-count"></span>
+  </div>
+
+  <!-- Page container -->
+  <div class="page-wrap">
+
+    <!-- PAGE 1: SUMMARY -->
+    <div class="page active" id="page-1">
+      <div class="kpi-row kpi-6" id="kpi-row-1"></div>
+
+      <div class="flex-row" style="flex:1.4">
+        <div class="chart-panel flex-2">
+          <div class="panel-title">
+            Close · MA20 · MA50
+            <span class="feat-pill fp-blue">Zoom</span>
+            <span class="feat-pill fp-blue">Analytics Lines</span>
+          </div>
+          <canvas id="chart-price"></canvas>
+          <div class="zoom-controls">
+            <input type="range" id="zoom-left" min="0" max="100" value="0" class="zoom-slider">
+            <input type="range" id="zoom-right" min="0" max="100" value="100" class="zoom-slider">
+            <span class="zoom-label">ZOOM</span>
+          </div>
+        </div>
+        <div class="flex-col flex-side">
+          <div class="narrative" id="smart-narrative">Loading…</div>
+          <div class="kpi-row kpi-4" style="flex-shrink:0">
+            <div class="kpi-card c-green" id="s-trend"></div>
+            <div class="kpi-card c-amber" id="s-macd"></div>
+            <div class="kpi-card c-dim" id="s-avgvol"></div>
+            <div class="kpi-card c-blue" id="s-3m"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-panel" style="flex:1;min-height:0">
+        <div class="panel-title">
+          Volume by Day of Week
+          <span class="feat-pill fp-purple">Small Multiples · Mon–Fri</span>
+          <span class="feat-pill fp-blue">DAX Bar Color</span>
+        </div>
+        <div class="sm-grid">
+          <div class="sm-panel"><div class="sm-title">MON</div><canvas id="vol-mon"></canvas></div>
+          <div class="sm-panel"><div class="sm-title">TUE</div><canvas id="vol-tue"></canvas></div>
+          <div class="sm-panel"><div class="sm-title">WED</div><canvas id="vol-wed"></canvas></div>
+          <div class="sm-panel"><div class="sm-title">THU</div><canvas id="vol-thu"></canvas></div>
+          <div class="sm-panel"><div class="sm-title">FRI</div><canvas id="vol-fri"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 2: TECHNICAL ANALYSIS -->
+    <div class="page" id="page-2">
+      <div class="indicator-bar">
+        <span class="filter-label">INDICATOR</span>
+        <button class="preset-btn active" id="ind-close" data-indicator="Close">Close</button>
+        <button class="preset-btn active" id="ind-ma20" data-indicator="MA20">MA20</button>
+        <button class="preset-btn active" id="ind-ma50" data-indicator="MA50">MA50</button>
+        <button class="preset-btn" id="ind-ma200" data-indicator="MA200">MA200</button>
+        <button class="preset-btn" id="ind-bb" data-indicator="BB">BB±</button>
+        <button class="preset-btn" id="ind-vwap" data-indicator="VWAP">VWAP</button>
+        <span class="feat-pill fp-amber" style="margin-left:auto">Field Parameters</span>
+      </div>
+
+      <div class="chart-panel flex-1">
+        <div class="panel-title">RSI (14) · Overbought 70 · Oversold 30
+          <span class="feat-pill fp-amber">Analytics Pane · Const Lines · Shade Area</span>
+        </div>
+        <canvas id="chart-rsi"></canvas>
+      </div>
+
+      <div class="chart-panel flex-1">
+        <div class="panel-title">MACD · Signal Line · Histogram
+          <span class="feat-pill fp-amber">Combo Chart · DAX Bar Color</span>
+        </div>
+        <canvas id="chart-macd"></canvas>
+      </div>
+
+      <div class="flex-row flex-1">
+        <div class="chart-panel flex-16">
+          <div class="panel-title">Bollinger Bands · Close · BB± 2σ
+            <span class="feat-pill fp-amber">Band Fill</span>
+          </div>
+          <canvas id="chart-bb"></canvas>
+        </div>
+        <div class="chart-panel flex-1">
+          <div class="panel-title">ATR (14)</div>
+          <canvas id="chart-atr"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 3: RETURNS & RISK -->
+    <div class="page" id="page-3">
+      <div class="kpi-row kpi-5" id="kpi-row-3"></div>
+
+      <div class="flex-row" style="flex:1.2">
+        <div class="chart-panel flex-16">
+          <div class="panel-title">Monthly Returns %
+            <span class="feat-pill fp-green">Cond. Format · Green/Red</span>
+            <span class="feat-pill fp-green">MonthSort</span>
+          </div>
+          <canvas id="chart-monthly"></canvas>
+        </div>
+        <div class="chart-panel flex-1">
+          <div class="panel-title">Drawdown from Peak
+            <span class="feat-pill fp-amber">Area · Y-max 0</span>
+          </div>
+          <canvas id="chart-dd"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-panel flex-1">
+        <div class="panel-title">Year × Month Return Heatmap
+          <span class="feat-pill fp-green">Matrix · Gradient Cond. Format</span>
+          <span class="feat-pill fp-purple">Click cell → Drillthrough to Data Table</span>
+        </div>
+        <div class="heatmap-wrap">
+          <div class="heatmap" id="heatmap"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 4: DATA TABLE -->
+    <div class="page" id="page-4">
+      <div class="table-controls">
+        <input type="text" class="search-box" placeholder="🔍  Search…" id="table-search">
+        <button class="preset-btn active" id="tbl-all" data-tbl-filter="all">Show All</button>
+        <button class="preset-btn" id="tbl-highvol" data-tbl-filter="highvol">High Volume</button>
+        <button class="preset-btn" id="tbl-ob" data-tbl-filter="ob">RSI ≥70</button>
+        <button class="preset-btn" id="tbl-os" data-tbl-filter="os">RSI ≤30</button>
+        <span class="feat-pill fp-blue" style="margin-left:auto">Data Bars</span>
+        <span class="feat-pill fp-amber">Icon Rules</span>
+        <span class="feat-pill fp-purple">Bookmarks</span>
+      </div>
+
+      <div class="table-outer">
+        <div class="table-wrap">
+          <table id="data-table">
+            <thead>
+              <tr>
+                <th style="text-align:left;cursor:pointer" data-sort-col="Datetime">DATETIME ↕</th>
+                <th data-sort-col="Open" style="cursor:pointer">OPEN ↕</th>
+                <th data-sort-col="High" style="cursor:pointer">HIGH ↕</th>
+                <th data-sort-col="Low" style="cursor:pointer">LOW ↕</th>
+                <th data-sort-col="Close" style="cursor:pointer">CLOSE ↕</th>
+                <th data-sort-col="Volume" style="cursor:pointer">VOLUME ▌↕</th>
+                <th data-sort-col="Return" style="cursor:pointer">RETURN ▌↕</th>
+                <th data-sort-col="RSI" style="cursor:pointer">RSI ⚑ ↕</th>
+                <th data-sort-col="MACD" style="cursor:pointer">MACD ↕</th>
+                <th data-sort-col="ATR" style="cursor:pointer">ATR ↕</th>
+                <th data-sort-col="Drawdown" style="cursor:pointer">DRAWDOWN ↕</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <span id="table-info"></span>
+          <div class="page-btns" id="page-btns"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page-wrap -->
+</div>
+
+<script src="/js/utils.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/kpi.js"></script>
+<script src="/js/charts.js"></script>
+<script src="/js/table.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

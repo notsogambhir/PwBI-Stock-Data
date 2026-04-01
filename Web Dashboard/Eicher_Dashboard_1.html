@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eicher Motors — Stock Analysis Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0B1220;
+  --surface:  #111827;
+  --surface2: #162032;
+  --border:   #1E2D45;
+  --border2:  #243650;
+  --blue:     #2563EB;
+  --blue-l:   #60A5FA;
+  --blue-d:   #1A2D4A;
+  --green:    #10B981;
+  --green-bg: #042010;
+  --red:      #EF4444;
+  --red-bg:   #200808;
+  --amber:    #F59E0B;
+  --purple:   #8B5CF6;
+  --text:     #E2E8F0;
+  --muted:    #94A3B8;
+  --dim:      #64748B;
+  --mono:     'JetBrains Mono', monospace;
+  --sans:     'Syne', sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+
+/* ── Upload screen ── */
+#upload-screen{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100vh;gap:24px;padding:40px;
+}
+.upload-box{
+  border:2px dashed var(--border2);border-radius:12px;padding:60px 80px;
+  text-align:center;cursor:pointer;transition:all .2s;background:var(--surface);
+  max-width:500px;width:100%;
+}
+.upload-box:hover{border-color:var(--blue);background:var(--blue-d)}
+.upload-icon{font-size:48px;margin-bottom:16px}
+.upload-title{font-size:18px;font-weight:700;margin-bottom:8px}
+.upload-sub{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.6}
+.upload-btn{
+  background:var(--blue);color:#fff;border:none;border-radius:6px;
+  padding:12px 32px;font-family:var(--sans);font-size:14px;font-weight:600;
+  cursor:pointer;transition:all .2s;margin-top:16px;
+}
+.upload-btn:hover{background:#1d4ed8}
+#file-input{display:none}
+.upload-path{
+  font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--surface);
+  border:1px solid var(--border);border-radius:4px;padding:8px 16px;text-align:center;
+}
+
+/* ── Dashboard shell — locks to viewport, no scroll ── */
+#dashboard{
+  display:none;flex-direction:column;
+  height:100vh;width:100vw;overflow:hidden;
+}
+
+/* Header — fixed height */
+.dash-header{
+  background:var(--surface);padding:0 16px;
+  display:flex;align-items:center;gap:10px;
+  flex:0 0 42px;
+  border-bottom:2px solid var(--blue);z-index:10;
+}
+.dash-ticker{
+  font-family:var(--mono);font-size:9px;color:var(--blue-l);
+  background:var(--blue-d);border:1px solid var(--blue);
+  padding:2px 7px;border-radius:3px;letter-spacing:1px;
+}
+.dash-name{font-size:13px;font-weight:700;letter-spacing:0.5px}
+.dash-sub{font-family:var(--mono);font-size:8px;color:var(--dim)}
+.dash-refresh{margin-left:auto;font-family:var(--mono);font-size:8px;color:var(--dim)}
+.dash-live{
+  width:6px;height:6px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;flex-shrink:0;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* Tab bar — fixed height */
+.tab-bar{
+  display:flex;background:#0A111E;border-bottom:1px solid var(--border);
+  flex:0 0 34px;padding:0 16px;gap:2px;align-items:stretch;
+}
+.tab{
+  font-family:var(--mono);font-size:9px;padding:0 16px;
+  color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;
+  letter-spacing:0.5px;transition:all .15s;user-select:none;
+  display:flex;align-items:center;
+}
+.tab:hover{color:var(--muted);background:rgba(255,255,255,0.02)}
+.tab.active{color:var(--text);border-bottom-color:var(--blue)}
+.tab.t2.active{border-bottom-color:var(--amber)}
+.tab.t3.active{border-bottom-color:var(--green)}
+.tab.t4.active{border-bottom-color:var(--dim)}
+
+/* Filter bar — fixed height */
+.filter-bar{
+  display:flex;align-items:center;gap:8px;padding:4px 16px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  flex:0 0 30px;
+}
+.filter-label{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:0.5px}
+.preset-btn{
+  font-family:var(--mono);font-size:8px;padding:2px 8px;
+  border:1px solid var(--border);border-radius:3px;cursor:pointer;
+  background:transparent;color:var(--dim);transition:all .15s;line-height:1;
+}
+.preset-btn:hover{border-color:var(--blue-l);color:var(--blue-l)}
+.preset-btn.active{background:var(--blue-d);color:var(--blue-l);border-color:var(--blue)}
+.filter-sep{width:1px;height:14px;background:var(--border)}
+.date-input{
+  font-family:var(--mono);font-size:8px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:3px;color:var(--muted);
+  padding:2px 6px;cursor:pointer;
+}
+.date-input:focus{outline:none;border-color:var(--blue)}
+.filter-count{font-family:var(--mono);font-size:8px;color:var(--dim);margin-left:auto}
+
+/* ── Page container — fills ALL remaining viewport height ── */
+.page-wrap{
+  flex:1;min-height:0;position:relative;overflow:hidden;
+}
+/* Each page fills the wrap completely — no scroll */
+.page{
+  display:none;
+  position:absolute;inset:0;
+  flex-direction:column;
+  padding:8px 12px;
+  gap:6px;
+  overflow:hidden;
+}
+.page.active{display:flex}
+
+/* ── KPI Cards — compact, fixed row ── */
+.kpi-row{display:grid;gap:6px;flex-shrink:0}
+.kpi-6{grid-template-columns:repeat(6,1fr)}
+.kpi-5{grid-template-columns:repeat(5,1fr)}
+.kpi-4{grid-template-columns:repeat(4,1fr)}
+.kpi-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:5px;
+  padding:6px 10px 5px;position:relative;overflow:hidden;
+}
+.kpi-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--blue);
+}
+.kpi-card.c-green::before{background:var(--green)}
+.kpi-card.c-red::before{background:var(--red)}
+.kpi-card.c-amber::before{background:var(--amber)}
+.kpi-card.c-purple::before{background:var(--purple)}
+.kpi-card.c-dim::before{background:var(--dim)}
+.kpi-card.bg-green{background:var(--green-bg);border-color:var(--green)}
+.kpi-card.bg-red{background:var(--red-bg);border-color:var(--red)}
+.kpi-label{font-family:var(--mono);font-size:7px;color:var(--dim);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:2px}
+.kpi-value{font-size:18px;font-weight:800;line-height:1;margin-bottom:2px}
+.kpi-sub{font-family:var(--mono);font-size:8px;color:var(--muted)}
+.v-blue{color:var(--blue-l)}
+.v-green{color:var(--green)}
+.v-red{color:var(--red)}
+.v-amber{color:var(--amber)}
+.v-muted{color:var(--muted)}
+
+/* ── Flex rows for chart areas ── */
+.flex-row{display:flex;gap:6px;flex:1;min-height:0}
+.flex-col{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0}
+.flex-1{flex:1;min-height:0;min-width:0}
+.flex-14{flex:1.4;min-height:0;min-width:0}
+.flex-16{flex:1.6;min-height:0;min-width:0}
+.flex-2{flex:2;min-height:0;min-width:0}
+.flex-38{flex:0 0 300px;min-height:0;min-width:0}
+
+/* ── Chart panels — fill their flex container ── */
+.chart-panel{
+  background:var(--surface);border:1px solid var(--border);border-radius:5px;
+  padding:7px 10px;display:flex;flex-direction:column;
+  flex:1;min-height:0;min-width:0;overflow:hidden;
+}
+.panel-title{
+  font-family:var(--mono);font-size:7px;color:var(--dim);letter-spacing:0.5px;
+  text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;
+  gap:6px;flex-shrink:0;flex-wrap:wrap;
+}
+.feat-pill{font-size:6px;padding:1px 4px;border-radius:2px;letter-spacing:0.2px}
+.fp-blue{background:var(--blue-d);color:var(--blue-l);border:1px solid #2A4A7A}
+.fp-amber{background:#2A1E06;color:var(--amber);border:1px solid #4A3510}
+.fp-green{background:#062414;color:var(--green);border:1px solid #0A4020}
+.fp-purple{background:#1A1230;color:var(--purple);border:1px solid #2A1E50}
+
+/* Canvas fills its panel */
+.chart-panel canvas{flex:1;min-height:0;width:100%!important}
+
+/* ── Small multiples ── */
+.sm-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;flex:1;min-height:0}
+.sm-panel{
+  background:var(--surface);border:1px solid var(--border);border-radius:5px;
+  padding:5px 8px;display:flex;flex-direction:column;min-height:0;
+}
+.sm-title{font-family:var(--mono);font-size:7px;color:var(--dim);text-align:center;margin-bottom:3px;flex-shrink:0}
+.sm-panel canvas{flex:1;min-height:0;width:100%!important}
+
+/* ── Narrative ── */
+.narrative{
+  background:var(--surface);border:1px dashed var(--border2);border-radius:5px;
+  padding:8px 10px;font-family:var(--mono);font-size:8.5px;line-height:1.7;color:var(--muted);
+  flex-shrink:0;
+}
+
+/* ── Heatmap ── */
+.heatmap-wrap{overflow-x:auto;overflow-y:auto;flex:1;min-height:0}
+.heatmap{display:grid;gap:2px}
+.hm-cell{
+  height:22px;border-radius:2px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:8px;font-weight:500;cursor:pointer;transition:opacity .1s;
+}
+.hm-cell:hover{opacity:0.8;outline:1px solid rgba(255,255,255,0.3)}
+.hm-header{background:transparent;color:var(--dim);font-size:7px}
+.hm-year{background:transparent;color:var(--muted);font-weight:600;font-size:8px}
+
+/* ── Data table ── */
+.table-controls{display:flex;gap:6px;flex-shrink:0;align-items:center;margin-bottom:5px}
+.search-box{
+  font-family:var(--mono);font-size:9px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:4px;color:var(--text);
+  padding:4px 10px;flex:1;max-width:260px;
+}
+.search-box:focus{outline:none;border-color:var(--blue)}
+.table-outer{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);border-radius:5px}
+.table-wrap{flex:1;overflow:auto;min-height:0}
+table{width:100%;border-collapse:collapse;min-width:900px}
+thead th{
+  background:#0A111E;font-family:var(--mono);font-size:7.5px;color:var(--muted);
+  padding:6px 8px;text-align:right;border-bottom:1px solid var(--blue);
+  letter-spacing:0.4px;white-space:nowrap;position:sticky;top:0;z-index:1;
+}
+thead th:first-child{text-align:left}
+tbody tr{border-bottom:1px solid rgba(30,45,69,0.5)}
+tbody tr:nth-child(even){background:rgba(15,23,42,0.4)}
+tbody tr:hover{background:rgba(37,99,235,0.06)}
+tbody td{
+  font-family:var(--mono);font-size:9px;padding:4px 8px;
+  text-align:right;color:var(--muted);white-space:nowrap;
+}
+tbody td:first-child{text-align:left;color:var(--dim)}
+.bar-cell{position:relative}
+.data-bar{position:absolute;left:0;top:25%;height:50%;border-radius:1px;opacity:0.45;pointer-events:none}
+.rsi-icon{margin-right:3px}
+.pagination{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 10px;font-family:var(--mono);font-size:8px;color:var(--dim);
+  border-top:1px solid var(--border);flex-shrink:0;background:var(--surface);
+}
+.page-btns{display:flex;gap:3px}
+.page-btn{
+  padding:2px 7px;border:1px solid var(--border);border-radius:3px;
+  cursor:pointer;background:transparent;color:var(--dim);font-family:var(--mono);font-size:8px;
+}
+.page-btn:hover{border-color:var(--blue-l);color:var(--blue-l)}
+.page-btn.active{background:var(--blue-d);color:var(--blue-l);border-color:var(--blue)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* Loading */
+.loading{
+  display:none;position:fixed;inset:0;background:rgba(11,18,32,0.9);
+  z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:12px;
+}
+.loading.show{display:flex}
+.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:var(--mono);font-size:10px;color:var(--dim)}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Parsing Excel data…</div>
+</div>
+
+<!-- Upload screen -->
+<div id="upload-screen">
+  <div style="text-align:center">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--blue-l);letter-spacing:2px;margin-bottom:8px">EICHER MOTORS · NSE STOCK ANALYSIS</div>
+    <div style="font-size:28px;font-weight:800;margin-bottom:6px">Interactive Dashboard</div>
+    <div style="font-family:var(--mono);font-size:11px;color:var(--dim)">Hourly OHLCV · 10+ Technical Indicators · Risk Metrics</div>
+  </div>
+
+  <div class="upload-box" onclick="document.getElementById('file-input').click()" id="drop-zone">
+    <div class="upload-icon">📊</div>
+    <div class="upload-title">Load Eicher Stock Data</div>
+    <div class="upload-sub">
+      Click to browse or drag & drop your Excel file<br>
+      Expected: <span style="color:var(--blue-l)">Eicher_Stock_Data.xlsx</span>
+    </div>
+    <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('file-input').click()">Choose File</button>
+    <input type="file" id="file-input" accept=".xlsx,.xls" onchange="loadFile(this.files[0])">
+  </div>
+
+  <div class="upload-path">
+    Default path: <span style="color:var(--blue-l)">C:\Users\hp\OneDrive\StockData\Eicher_Stock_Data.xlsx</span>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+
+  <div class="dash-header">
+    <div class="dash-live"></div>
+    <div class="dash-ticker">EICHERMOT.NS</div>
+    <div>
+      <div class="dash-name">Eicher Motors Limited</div>
+      <div class="dash-sub">NSE · Hourly Data · Auto-computed indicators</div>
+    </div>
+    <div class="dash-refresh" id="refresh-ts"></div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab t1 active" onclick="showTab(1)">01 · Summary</div>
+    <div class="tab t2"        onclick="showTab(2)">02 · Technical Analysis</div>
+    <div class="tab t3"        onclick="showTab(3)">03 · Returns &amp; Risk</div>
+    <div class="tab t4"        onclick="showTab(4)">04 · Data Table</div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-label">RANGE</span>
+    <button class="preset-btn" onclick="setPreset(7)">7D</button>
+    <button class="preset-btn" onclick="setPreset(30)">30D</button>
+    <button class="preset-btn active" id="btn-90" onclick="setPreset(90)">90D</button>
+    <button class="preset-btn" onclick="setPreset(180)">180D</button>
+    <button class="preset-btn" onclick="setPreset(365)">1Y</button>
+    <button class="preset-btn" onclick="setPreset(9999)">All</button>
+    <div class="filter-sep"></div>
+    <input type="date" class="date-input" id="date-from" onchange="applyDateFilter()">
+    <span style="font-family:var(--mono);font-size:9px;color:var(--dim)">→</span>
+    <input type="date" class="date-input" id="date-to" onchange="applyDateFilter()">
+    <span class="filter-count" id="bar-count"></span>
+  </div>
+
+  <div class="page-wrap" style="flex:1;min-height:0;position:relative;overflow:hidden">
+
+  <!-- PAGE 1: SUMMARY -->
+  <div class="page active" id="page-1">
+
+    <div class="kpi-row kpi-6" id="kpi-row-1" style="flex-shrink:0"></div>
+
+    <div class="flex-row" style="flex:1.4">
+      <div class="chart-panel flex-2">
+        <div class="panel-title">
+          Close · MA20 · MA50
+          <span class="feat-pill fp-blue">Zoom</span>
+          <span class="feat-pill fp-blue">Analytics Lines</span>
+        </div>
+        <canvas id="chart-price"></canvas>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-shrink:0">
+          <input type="range" id="zoom-left" min="0" max="100" value="0" style="flex:1;accent-color:var(--blue);height:3px" oninput="applyZoom()">
+          <input type="range" id="zoom-right" min="0" max="100" value="100" style="flex:1;accent-color:var(--blue);height:3px" oninput="applyZoom()">
+          <span style="font-family:var(--mono);font-size:7px;color:var(--dim)">ZOOM</span>
+        </div>
+      </div>
+      <div class="flex-col flex-38">
+        <div class="narrative" id="smart-narrative">Loading…</div>
+        <div class="kpi-row kpi-4" style="flex-shrink:0">
+          <div class="kpi-card c-green" id="s-trend"></div>
+          <div class="kpi-card c-amber" id="s-macd"></div>
+          <div class="kpi-card c-dim"   id="s-avgvol"></div>
+          <div class="kpi-card c-blue"  id="s-3m"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-panel" style="flex:1;min-height:0">
+      <div class="panel-title">
+        Volume by Day of Week
+        <span class="feat-pill fp-purple">Small Multiples · Mon–Fri</span>
+        <span class="feat-pill fp-blue">DAX Bar Color</span>
+      </div>
+      <div class="sm-grid">
+        <div class="sm-panel"><div class="sm-title">MON</div><canvas id="vol-mon"></canvas></div>
+        <div class="sm-panel"><div class="sm-title">TUE</div><canvas id="vol-tue"></canvas></div>
+        <div class="sm-panel"><div class="sm-title">WED</div><canvas id="vol-wed"></canvas></div>
+        <div class="sm-panel"><div class="sm-title">THU</div><canvas id="vol-thu"></canvas></div>
+        <div class="sm-panel"><div class="sm-title">FRI</div><canvas id="vol-fri"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PAGE 2: TECHNICAL ANALYSIS -->
+  <div class="page" id="page-2">
+
+    <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap">
+      <span class="filter-label">INDICATOR</span>
+      <button class="preset-btn active" id="ind-close"  onclick="toggleIndicator('Close')">Close</button>
+      <button class="preset-btn active" id="ind-ma20"   onclick="toggleIndicator('MA20')">MA20</button>
+      <button class="preset-btn active" id="ind-ma50"   onclick="toggleIndicator('MA50')">MA50</button>
+      <button class="preset-btn"        id="ind-ma200"  onclick="toggleIndicator('MA200')">MA200</button>
+      <button class="preset-btn"        id="ind-bb"     onclick="toggleIndicator('BB')">BB±</button>
+      <button class="preset-btn"        id="ind-vwap"   onclick="toggleIndicator('VWAP')">VWAP</button>
+      <span class="feat-pill fp-amber" style="margin-left:auto">Field Parameters</span>
+    </div>
+
+    <div class="chart-panel flex-1">
+      <div class="panel-title">RSI (14) · Overbought 70 · Oversold 30
+        <span class="feat-pill fp-amber">Analytics Pane · Const Lines · Shade Area</span>
+      </div>
+      <canvas id="chart-rsi"></canvas>
+    </div>
+
+    <div class="chart-panel flex-1">
+      <div class="panel-title">MACD · Signal Line · Histogram
+        <span class="feat-pill fp-amber">Combo Chart · DAX Bar Color</span>
+      </div>
+      <canvas id="chart-macd"></canvas>
+    </div>
+
+    <div class="flex-row flex-1">
+      <div class="chart-panel flex-16">
+        <div class="panel-title">Bollinger Bands · Close · BB± 2σ
+          <span class="feat-pill fp-amber">Band Fill</span>
+        </div>
+        <canvas id="chart-bb"></canvas>
+      </div>
+      <div class="chart-panel flex-1">
+        <div class="panel-title">ATR (14)</div>
+        <canvas id="chart-atr"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PAGE 3: RETURNS & RISK -->
+  <div class="page" id="page-3">
+
+    <div class="kpi-row kpi-5" id="kpi-row-3" style="flex-shrink:0"></div>
+
+    <div class="flex-row" style="flex:1.2">
+      <div class="chart-panel flex-16">
+        <div class="panel-title">Monthly Returns %
+          <span class="feat-pill fp-green">Cond. Format · Green/Red</span>
+          <span class="feat-pill fp-green">MonthSort</span>
+        </div>
+        <canvas id="chart-monthly"></canvas>
+      </div>
+      <div class="chart-panel flex-1">
+        <div class="panel-title">Drawdown from Peak
+          <span class="feat-pill fp-amber">Area · Y-max 0</span>
+        </div>
+        <canvas id="chart-dd"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-panel flex-1">
+      <div class="panel-title">Year × Month Return Heatmap
+        <span class="feat-pill fp-green">Matrix · Gradient Cond. Format</span>
+        <span class="feat-pill fp-purple">Click cell → Drillthrough to Data Table</span>
+      </div>
+      <div class="heatmap-wrap">
+        <div class="heatmap" id="heatmap"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PAGE 4: DATA TABLE -->
+  <div class="page" id="page-4">
+
+    <div class="table-controls">
+      <input type="text" class="search-box" placeholder="🔍  Search…" id="table-search" oninput="filterTable()">
+      <button class="preset-btn active" id="tbl-all"     onclick="setTableFilter('all')">Show All</button>
+      <button class="preset-btn"        id="tbl-highvol" onclick="setTableFilter('highvol')">High Volume</button>
+      <button class="preset-btn"        id="tbl-ob"      onclick="setTableFilter('ob')">RSI ≥70</button>
+      <button class="preset-btn"        id="tbl-os"      onclick="setTableFilter('os')">RSI ≤30</button>
+      <span class="feat-pill fp-blue"   style="margin-left:auto">Data Bars</span>
+      <span class="feat-pill fp-amber">Icon Rules</span>
+      <span class="feat-pill fp-purple">Bookmarks</span>
+    </div>
+
+    <div class="table-outer">
+      <div class="table-wrap">
+        <table id="data-table">
+          <thead>
+            <tr>
+              <th style="text-align:left;cursor:pointer" onclick="sortTable('Datetime')">DATETIME ↕</th>
+              <th onclick="sortTable('Open')"     style="cursor:pointer">OPEN ↕</th>
+              <th onclick="sortTable('High')"     style="cursor:pointer">HIGH ↕</th>
+              <th onclick="sortTable('Low')"      style="cursor:pointer">LOW ↕</th>
+              <th onclick="sortTable('Close')"    style="cursor:pointer">CLOSE ↕</th>
+              <th onclick="sortTable('Volume')"   style="cursor:pointer">VOLUME ▌↕</th>
+              <th onclick="sortTable('Return')"   style="cursor:pointer">RETURN ▌↕</th>
+              <th onclick="sortTable('RSI')"      style="cursor:pointer">RSI ⚑ ↕</th>
+              <th onclick="sortTable('MACD')"     style="cursor:pointer">MACD ↕</th>
+              <th onclick="sortTable('ATR')"      style="cursor:pointer">ATR ↕</th>
+              <th onclick="sortTable('Drawdown')" style="cursor:pointer">DRAWDOWN ↕</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span id="table-info"></span>
+        <div class="page-btns" id="page-btns"></div>
+      </div>
+    </div>
+
+  </div>
+
+  </div><!-- /page-wrap -->
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DATA STORE
+// ═══════════════════════════════════════════════════════════════
+let RAW = [], MONTHLY = [], DASH = {};
+let FILTERED = [];
+let charts = {};
+let tableData = [], tableSortCol = 'Datetime', tableSortAsc = false;
+let tableFilter = 'all', tableSearch = '', tablePage = 1;
+const ROWS_PER_PAGE = 50;
+let activeIndicators = { Close: true, MA20: true, MA50: true, MA200: false, BB: false, VWAP: false };
+
+// ═══════════════════════════════════════════════════════════════
+// FILE LOADING
+// ═══════════════════════════════════════════════════════════════
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--blue)'; });
+dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
+dropZone.addEventListener('drop', e => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); });
+
+function loadFile(file) {
+  if (!file) return;
+  document.getElementById('loading').classList.add('show');
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+
+      // Stock Data sheet
+      const ws1 = wb.Sheets['Stock Data'];
+      if (!ws1) throw new Error('Sheet "Stock Data" not found');
+      const raw = XLSX.utils.sheet_to_json(ws1, { raw: false, defval: '' });
+      RAW = raw.map(r => ({
+        Datetime:    r['Datetime'] || r['Date'] || '',
+        Open:        +r['Open']   || 0,
+        High:        +r['High']   || 0,
+        Low:         +r['Low']    || 0,
+        Close:       +r['Close']  || 0,
+        Volume:      +r['Volume'] || 0,
+        Return:      +r['Return'] || 0,
+        Change:      +r['Change'] || 0,
+        MA20:        +r['MA20']   || null,
+        MA50:        +r['MA50']   || null,
+        MA200:       +r['MA200']  || null,
+        Volatility:  +r['Volatility'] || null,
+        RSI:         +r['RSI']    || null,
+        BB_Upper:    +r['BB_Upper'] || null,
+        BB_Lower:    +r['BB_Lower'] || null,
+        VWAP:        +r['VWAP']   || null,
+        ATR:         +r['ATR']    || null,
+        MACD:        +r['MACD']   || null,
+        MACD_Signal: +r['MACD_Signal'] || null,
+        Drawdown:    +r['Drawdown'] || null,
+        _dt:         new Date(r['Datetime'] || r['Date'])
+      })).filter(r => r.Close > 0);
+
+      // Monthly Returns sheet
+      const ws2 = wb.Sheets['Monthly Returns'];
+      if (ws2) {
+        MONTHLY = XLSX.utils.sheet_to_json(ws2, { raw: false, defval: '' }).map(r => ({
+          Month:    r['Month'] || '',
+          Open:     +r['Open']  || 0,
+          High:     +r['High']  || 0,
+          Low:      +r['Low']   || 0,
+          Close:    +r['Close'] || 0,
+          Volume:   +r['Volume'] || 0,
+          Return:   +r['Return_%'] || 0
+        }));
+      }
+
+      // Dashboard sheet
+      const ws3 = wb.Sheets['Dashboard'];
+      if (ws3) {
+        XLSX.utils.sheet_to_json(ws3, { raw: false }).forEach(r => {
+          if (r['Metric'] && r['Value'] !== undefined) DASH[r['Metric']] = r['Value'];
+        });
+      }
+
+      initDashboard();
+    } catch(err) {
+      alert('Error reading file: ' + err.message);
+      document.getElementById('loading').classList.remove('show');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+function initDashboard() {
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'flex';
+
+  // Set default date range to last 90 days
+  const maxDt = new Date(Math.max(...RAW.map(r => r._dt)));
+  const minDt = new Date(maxDt); minDt.setDate(minDt.getDate() - 90);
+  document.getElementById('date-to').value   = fmt(maxDt);
+  document.getElementById('date-from').value = fmt(minDt);
+  document.getElementById('refresh-ts').textContent =
+    'Loaded: ' + RAW.length.toLocaleString() + ' bars · ' + (DASH['Last Updated'] || fmt(maxDt));
+
+  applyDateFilter();
+  document.getElementById('loading').classList.remove('show');
+}
+
+function fmt(d) {
+  return d.toISOString().split('T')[0];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATE FILTERING
+// ═══════════════════════════════════════════════════════════════
+function setPreset(days) {
+  document.querySelectorAll('.filter-bar .preset-btn').forEach(b => b.classList.remove('active'));
+  const maxDt = new Date(Math.max(...RAW.map(r => r._dt)));
+  const minDt = new Date(maxDt); minDt.setDate(minDt.getDate() - days);
+  document.getElementById('date-from').value = fmt(minDt);
+  document.getElementById('date-to').value   = fmt(maxDt);
+  applyDateFilter();
+}
+
+function applyDateFilter() {
+  const from = new Date(document.getElementById('date-from').value);
+  const to   = new Date(document.getElementById('date-to').value);
+  to.setHours(23, 59, 59);
+  FILTERED = RAW.filter(r => r._dt >= from && r._dt <= to);
+  document.getElementById('bar-count').textContent =
+    FILTERED.length.toLocaleString() + ' bars';
+  renderAll();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════════════════════════════
+function renderAll() {
+  renderKPI1();
+  renderPriceChart();
+  renderVolumeSmMultiples();
+  renderSignalCards();
+  renderNarrative();
+  renderRSI();
+  renderMACD();
+  renderBollinger();
+  renderATR();
+  renderKPI3();
+  renderMonthlyReturns();
+  renderDrawdown();
+  renderHeatmap();
+  tableData = [...FILTERED].reverse();
+  renderTable();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function clr(v, t=0) { return v > t ? 'var(--green)' : v < t ? 'var(--red)' : 'var(--muted)' }
+function fmtN(v, d=2) { return v == null || isNaN(v) ? 'N/A' : (+v).toFixed(d) }
+function fmtK(v) {
+  if (v >= 1e6) return (v/1e6).toFixed(1)+'M';
+  if (v >= 1e3) return (v/1e3).toFixed(0)+'K';
+  return v;
+}
+function pct(v) { return (v>=0?'+':'')+fmtN(v,2)+'%' }
+function last(arr, key) { const v = arr.filter(r=>r[key]!=null&&!isNaN(r[key])); return v.length?v[v.length-1][key]:null }
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function getChartDefaults() {
+  return {
+    animation: { duration: 300 },
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#162032',
+        borderColor: '#1E2D45', borderWidth: 1,
+        titleFont: { family: 'JetBrains Mono', size: 9 },
+        bodyFont:  { family: 'JetBrains Mono', size: 9 },
+        titleColor: '#94A3B8', bodyColor: '#E2E8F0', padding: 8
+      }
+    },
+    scales: {
+      x: { ticks: { color: '#64748B', font: { family: 'JetBrains Mono', size: 8 }, maxTicksLimit: 8 },
+           grid: { color: 'rgba(30,45,69,0.6)' }, border: { color: '#1E2D45' } },
+      y: { ticks: { color: '#64748B', font: { family: 'JetBrains Mono', size: 8 } },
+           grid: { color: 'rgba(30,45,69,0.6)' }, border: { color: '#1E2D45' } }
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAGE 1 — KPI CARDS
+// ═══════════════════════════════════════════════════════════════
+function renderKPI1() {
+  if (!FILTERED.length) return;
+  const d = FILTERED;
+  const latest = d[d.length-1];
+  const prev   = d[d.length-2] || latest;
+
+  const yearStart = new Date(latest._dt.getFullYear(), 0, 1);
+  const ytdFirst  = d.find(r => r._dt >= yearStart);
+  const ytd       = ytdFirst ? (latest.Close - ytdFirst.Close) / ytdFirst.Close * 100 : 0;
+  const hi52      = Math.max(...d.slice(-Math.min(252*7,d.length)).map(r=>r.High));
+  const lo52      = Math.min(...d.slice(-Math.min(252*7,d.length)).map(r=>r.Low));
+  const rsi       = last(d, 'RSI');
+  const dayChgPct = prev.Close ? (latest.Close - prev.Close) / prev.Close * 100 : 0;
+
+  const rsiSignal = rsi >= 70 ? '⚠ Overbought' : rsi <= 30 ? '✅ Oversold' : rsi >= 55 ? 'Bullish' : rsi <= 45 ? 'Bearish' : 'Neutral';
+  const rsiClass  = rsi >= 70 ? 'c-red' : rsi <= 30 ? 'c-green' : 'c-amber';
+
+  // Build spark for CMP card
+  const sparkPts = d.slice(-40).map(r=>r.Close);
+  const sparkMin = Math.min(...sparkPts), sparkMax = Math.max(...sparkPts);
+  const sparkSvg = `<svg width="100%" height="24" viewBox="0 0 100 24" preserveAspectRatio="none" style="margin-top:4px">
+    ${sparkPts.map((v,i)=>{
+      const x = i/(sparkPts.length-1)*100;
+      const y = 22 - (v-sparkMin)/(sparkMax-sparkMin||1)*20;
+      return `${i===0?'M':'L'}${x},${y}`;
+    }).join(' ')}
+  </svg>`.replace('<path', '<path fill="none" stroke="var(--blue)" stroke-width="1.5"');
+  // need proper path
+  const pathD = sparkPts.map((v,i)=>{
+    const x = i/(sparkPts.length-1)*100;
+    const y = 22 - (v-sparkMin)/(sparkMax-sparkMin||1)*20;
+    return (i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1);
+  }).join(' ');
+
+  document.getElementById('kpi-row-1').innerHTML = `
+    <div class="kpi-card c-blue">
+      <div class="kpi-label">Current Price</div>
+      <div class="kpi-value v-blue">₹${fmtN(latest.Close,2)}</div>
+      <div class="kpi-sub">${pct(dayChgPct)} vs prev bar</div>
+      <svg width="100%" height="24" viewBox="0 0 100 24" preserveAspectRatio="none" style="margin-top:4px">
+        <path d="${pathD}" fill="none" stroke="var(--blue)" stroke-width="1.5"/>
+        <circle cx="${(sparkPts.length-1)/(sparkPts.length-1)*100}" cy="${(22-(sparkPts[sparkPts.length-1]-sparkMin)/(sparkMax-sparkMin||1)*20).toFixed(1)}" r="2" fill="var(--blue-l)"/>
+      </svg>
+    </div>
+    <div class="kpi-card ${dayChgPct>=0?'bg-green c-green':'bg-red c-red'}">
+      <div class="kpi-label">Day Change</div>
+      <div class="kpi-value ${dayChgPct>=0?'v-green':'v-red'}">${pct(dayChgPct)}</div>
+      <div class="kpi-sub" style="color:${dayChgPct>=0?'var(--green)':'var(--red)'}">₹${fmtN(latest.Close-prev.Close,2)}</div>
+    </div>
+    <div class="kpi-card c-green">
+      <div class="kpi-label">YTD Return</div>
+      <div class="kpi-value ${ytd>=0?'v-green':'v-red'}">${pct(ytd)}</div>
+      <div class="kpi-sub" style="color:var(--dim)">Jan 1 → Now</div>
+    </div>
+    <div class="kpi-card c-dim">
+      <div class="kpi-label">52W High</div>
+      <div class="kpi-value v-muted">₹${fmtN(hi52,2)}</div>
+      <div class="kpi-sub v-red">${pct((latest.Close-hi52)/hi52*100)} from high</div>
+    </div>
+    <div class="kpi-card c-dim">
+      <div class="kpi-label">52W Low</div>
+      <div class="kpi-value v-muted">₹${fmtN(lo52,2)}</div>
+      <div class="kpi-sub v-green">${pct((latest.Close-lo52)/lo52*100)} from low</div>
+    </div>
+    <div class="kpi-card ${rsiClass}">
+      <div class="kpi-label">RSI (14)</div>
+      <div class="kpi-value" style="color:${rsi>=70?'var(--red)':rsi<=30?'var(--green)':'var(--amber)'}">${fmtN(rsi,1)}</div>
+      <div class="kpi-sub" style="color:${rsi>=70?'var(--red)':rsi<=30?'var(--green)':'var(--amber)'}">${rsiSignal}</div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRICE CHART
+// ═══════════════════════════════════════════════════════════════
+let zoomL = 0, zoomR = 100;
+function applyZoom() {
+  zoomL = +document.getElementById('zoom-left').value;
+  zoomR = +document.getElementById('zoom-right').value;
+  if (zoomL >= zoomR) { zoomR = zoomL + 1; document.getElementById('zoom-right').value = zoomR; }
+  renderPriceChart();
+}
+
+function renderPriceChart() {
+  if (!FILTERED.length) return;
+  const start = Math.floor(zoomL / 100 * FILTERED.length);
+  const end   = Math.ceil(zoomR  / 100 * FILTERED.length);
+  const d = FILTERED.slice(start, end);
+
+  const labels = d.map(r => {
+    const dt = r._dt;
+    return dt.toLocaleDateString('en-IN', {month:'short', day:'numeric'});
+  });
+
+  const datasets = [];
+  if (activeIndicators.Close) datasets.push({
+    label: 'Close', data: d.map(r=>r.Close), borderColor: '#3B82F6',
+    borderWidth: 1.8, pointRadius: 0, tension: 0.1, order: 1,
+    fill: { target: 'origin', above: 'rgba(37,99,235,0.04)' }
+  });
+  if (activeIndicators.MA20) datasets.push({
+    label:'MA20', data:d.map(r=>r.MA20), borderColor:'#F59E0B',
+    borderWidth:1, pointRadius:0, borderDash:[4,3], tension:0.1, order:2
+  });
+  if (activeIndicators.MA50) datasets.push({
+    label:'MA50', data:d.map(r=>r.MA50), borderColor:'#8B5CF6',
+    borderWidth:1, pointRadius:0, borderDash:[2,4], tension:0.1, order:3
+  });
+  if (activeIndicators.MA200) datasets.push({
+    label:'MA200', data:d.map(r=>r.MA200), borderColor:'#06B6D4',
+    borderWidth:0.8, pointRadius:0, borderDash:[6,4], tension:0.1, order:4
+  });
+  if (activeIndicators.BB) {
+    datasets.push({ label:'BB+', data:d.map(r=>r.BB_Upper), borderColor:'rgba(100,116,139,0.6)', borderWidth:0.8, pointRadius:0, borderDash:[3,3], fill:false, order:5 });
+    datasets.push({ label:'BB-', data:d.map(r=>r.BB_Lower), borderColor:'rgba(100,116,139,0.6)', borderWidth:0.8, pointRadius:0, borderDash:[3,3], fill:'-1', backgroundColor:'rgba(100,116,139,0.05)', order:6 });
+  }
+  if (activeIndicators.VWAP) datasets.push({
+    label:'VWAP', data:d.map(r=>r.VWAP), borderColor:'#10B981',
+    borderWidth:1, pointRadius:0, borderDash:[5,3], order:7
+  });
+
+  destroyChart('price');
+  const ctx = document.getElementById('chart-price').getContext('2d');
+  const defaults = getChartDefaults();
+  charts.price = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      ...defaults,
+      plugins: {
+        ...defaults.plugins,
+        legend: {
+          display: true,
+          labels: { color: '#94A3B8', font: { family: 'JetBrains Mono', size: 8 }, boxWidth: 20, padding: 10 }
+        }
+      },
+      scales: {
+        ...defaults.scales,
+        y: { ...defaults.scales.y, ticks: { ...defaults.scales.y.ticks, callback: v => '₹'+v.toLocaleString('en-IN') } }
+      }
+    }
+  });
+}
+
+function toggleIndicator(key) {
+  activeIndicators[key] = !activeIndicators[key];
+  const btn = document.getElementById('ind-' + key.toLowerCase());
+  if (btn) btn.classList.toggle('active', activeIndicators[key]);
+  renderPriceChart();
+  renderBollinger(); // BB affects BB chart too
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VOLUME SMALL MULTIPLES
+// ═══════════════════════════════════════════════════════════════
+const DAYS = ['Mon','Tue','Wed','Thu','Fri'];
+const DAY_IDS = ['vol-mon','vol-tue','vol-wed','vol-thu','vol-fri'];
+
+function renderVolumeSmMultiples() {
+  if (!FILTERED.length) return;
+  DAYS.forEach((day, di) => {
+    const dayData = FILTERED.filter(r => {
+      const wd = r._dt.getDay();
+      return wd === di + 1;
+    });
+    // Take last 20 bars for each day
+    const slice = dayData.slice(-20);
+    const labels = slice.map(r => r._dt.toLocaleDateString('en-IN',{month:'short',day:'numeric'}));
+    const colors = slice.map(r => r.Change >= 0 ? 'rgba(16,185,129,0.65)' : 'rgba(239,68,68,0.65)');
+
+    destroyChart('vol-' + day.toLowerCase());
+    const ctx = document.getElementById(DAY_IDS[di]).getContext('2d');
+    charts['vol-' + day.toLowerCase()] = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ data: slice.map(r=>r.Volume), backgroundColor: colors, borderRadius: 1 }] },
+      options: {
+        animation: false, responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          backgroundColor:'#162032', borderColor:'#1E2D45', borderWidth:1,
+          titleFont:{ family:'JetBrains Mono', size:8 }, bodyFont:{ family:'JetBrains Mono', size:8 },
+          callbacks: { label: ctx => fmtK(ctx.parsed.y) }
+        }},
+        scales: {
+          x: { display: false, grid: { display: false } },
+          y: { ticks:{ color:'#475569', font:{ family:'JetBrains Mono', size:7 }, maxTicksLimit:3, callback: v=>fmtK(v) },
+               grid:{ color:'rgba(30,45,69,0.4)' }, border:{ color:'#1E2D45' } }
+        }
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SIGNAL CARDS
+// ═══════════════════════════════════════════════════════════════
+function renderSignalCards() {
+  if (!FILTERED.length) return;
+  const d = FILTERED;
+  const latest = d[d.length-1];
+  const m20 = last(d,'MA20'), m50 = last(d,'MA50');
+  const macd = last(d,'MACD'), sig = last(d,'MACD_Signal');
+  const avgVol = d.slice(-Math.min(30*7,d.length)).reduce((s,r)=>s+r.Volume,0) /
+                 Math.min(30*7,d.length);
+  const d3m = d[Math.max(0,d.length-66*7)];
+  const ret3m = d3m ? (latest.Close-d3m.Close)/d3m.Close*100 : 0;
+
+  const trend = latest.Close > m20 && m20 > m50 ? '↑  Uptrend' :
+                latest.Close < m20 && m20 < m50 ? '↓  Downtrend' : '→  Mixed';
+  const trendC = trend.includes('↑') ? 'var(--green)' : trend.includes('↓') ? 'var(--red)' : 'var(--amber)';
+  const macdS  = macd > sig ? '↑  Bullish Cross' : '↓  Bearish Cross';
+  const macdC  = macd > sig ? 'var(--green)' : 'var(--red)';
+
+  document.getElementById('s-trend').innerHTML = `
+    <div class="kpi-label" style="font-size:7px">Trend Signal</div>
+    <div class="kpi-value" style="font-size:13px;font-weight:700;color:${trendC}">${trend}</div>`;
+  document.getElementById('s-macd').innerHTML = `
+    <div class="kpi-label" style="font-size:7px">MACD Signal</div>
+    <div class="kpi-value" style="font-size:12px;font-weight:700;color:${macdC}">${macdS}</div>`;
+  document.getElementById('s-avgvol').innerHTML = `
+    <div class="kpi-label" style="font-size:7px">Avg Vol 30D</div>
+    <div class="kpi-value" style="font-size:15px;color:var(--muted)">${fmtK(Math.round(avgVol))}</div>`;
+  document.getElementById('s-3m').innerHTML = `
+    <div class="kpi-label" style="font-size:7px">3M Return</div>
+    <div class="kpi-value" style="font-size:15px;color:${ret3m>=0?'var(--green)':'var(--red)'}">${pct(ret3m)}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SMART NARRATIVE
+// ═══════════════════════════════════════════════════════════════
+function renderNarrative() {
+  if (!FILTERED.length) return;
+  const d = FILTERED;
+  const latest = d[d.length-1];
+  const rsi = last(d,'RSI');
+  const macd = last(d,'MACD'), sig = last(d,'MACD_Signal');
+  const vol = latest.Volume;
+  const avgVol = d.slice(-30).reduce((s,r)=>s+r.Volume,0)/30;
+  const rsiSig = rsi >= 70 ? 'Overbought' : rsi <= 30 ? 'Oversold' : rsi >= 55 ? 'Bullish' : 'Bearish';
+  const m20 = last(d,'MA20'), m50 = last(d,'MA50');
+  const trend = latest.Close > m20 && m20 > m50 ? 'Uptrend' : latest.Close < m20 && m20 < m50 ? 'Downtrend' : 'Mixed';
+  const volNote = vol > avgVol*1.5 ? 'High volume session.' : vol < avgVol*0.5 ? 'Low volume session.' : 'Normal volume.';
+
+  document.getElementById('smart-narrative').innerHTML =
+    `<span style="color:var(--dim);font-size:8px;letter-spacing:1px">SMART NARRATIVE</span><br><br>` +
+    `Eicher Motors is trading at <span style="color:var(--blue-l)">₹${fmtN(latest.Close,2)}</span> — ` +
+    `<span style="color:${trend==='Uptrend'?'var(--green)':trend==='Downtrend'?'var(--red)':'var(--amber)'}">${trend}</span>. ` +
+    `RSI is <span style="color:${rsi>=70?'var(--red)':rsi<=30?'var(--green)':'var(--amber)'}">${fmtN(rsi,1)} (${rsiSig})</span>. ` +
+    `MACD is <span style="color:${macd>sig?'var(--green)':'var(--red)'}">${macd>sig?'bullish':'bearish'} crossover</span>. ` +
+    `${volNote} Showing <span style="color:var(--blue-l)">${d.length.toLocaleString()}</span> hourly bars.`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RSI CHART
+// ═══════════════════════════════════════════════════════════════
+function renderRSI() {
+  if (!FILTERED.length) return;
+  const d = FILTERED;
+  const labels = d.map(r => r._dt.toLocaleDateString('en-IN',{month:'short',day:'numeric'}));
+  const rsiData = d.map(r => r.RSI);
+
+  destroyChart('rsi');
+  const ctx = document.getElementById('chart-rsi').getContext('2d');
+  const defaults = getChartDefaults();
+
+  charts.rsi = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'RSI', data:rsiData, borderColor:'#F59E0B', borderWidth:1.5, pointRadius:0, tension:0.1,
+          fill: false },
+        { label:'OB', data:d.map(()=>70), borderColor:'rgba(239,68,68,0.5)', borderWidth:0.8, pointRadius:0, borderDash:[4,3],
+          fill: { target:'+1', above:'rgba(239,68,68,0.08)' } },
+        { label:'OS', data:d.map(()=>30), borderColor:'rgba(16,185,129,0.5)', borderWidth:0.8, pointRadius:0, borderDash:[4,3],
+          fill: { target:'end', above:'rgba(16,185,129,0.08)' } }
+      ]
+    },
+    options: {
+      ...defaults,
+      plugins: { ...defaults.plugins, legend: { display:false } },
+      scales: {
+        ...defaults.scales,
+        y: { ...defaults.scales.y, min:0, max:100,
+             ticks: { ...defaults.scales.y.ticks, callback: v=>{
+               if(v===70) return '70 OB'; if(v===30) return '30 OS'; if(v===50) return '50'; return '';
+             }}}
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MACD CHART
+// ═══════════════════════════════════════════════════════════════
+function renderMACD() {
+  if (!FILTERED.length) return;
+  const d = FILTERED;
+  const labels = d.map(r=>r._dt.toLocaleDateString('en-IN',{month:'short',day:'numeric'}));
+  const hist    = d.map(r => r.MACD != null && r.MACD_Signal != null ? r.MACD - r.MACD_Signal : null);
+  const histColors = hist.map(v => v >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)');
+
+  destroyChart('macd');
+  const ctx = document.getElementById('chart-macd').getContext('2d');
+  const defaults = getChartDefaults();
+
+  charts.macd = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { type:'bar', label:'Hist', data:hist, backgroundColor:histColors, order:2, yAxisID:'y' },
+        { type:'line', label:'MACD', data:d.map(r=>r.MACD), borderColor:'#3B82F6', borderWidth:1.4, pointRadius:0, tension:0.1, order:1, yAxisID:'y' },
+        { type:'line', label:'Signal', data:d.map(r=>r.MACD_Signal), borderColor:'#F59E0B', borderWidth:1, pointRadius:0, borderDash:[3,2], tension:0.1, order:1, yAxisID:'y' }
+      ]
+    },
+    options: {
+      ...defaults,
+      plugins: {
+        ...defaults.plugins,
+        legend: { display:true, labels:{ color:'#94A3B8', font:{family:'JetBrains Mono',size:8}, boxWidth:16, padding:10 } }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOLLINGER BANDS CHART
+// ═══════════════════════════════════════════════════════════════
+function renderBollinger() {
+  if (!FILTERED.length) return;
+  const d = FILTERED;
+  const labels = d.map(r=>r._dt.toLocaleDateString('en-IN',{month:'short',day:'numeric'}));
+
+  destroyChart('bb');
+  const ctx = document.getElementById('chart-bb').getContext('2d');
+  const defaults = getChartDefaults();
+
+  charts.bb = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'BB+', data:d.map(r=>r.BB_Upper), borderColor:'rgba(100,116,139,0.5)', borderWidth:0.8, pointRadius:0, borderDash:[3,3], fill:false },
+        { label:'Close', data:d.map(r=>r.Close), borderColor:'#3B82F6', borderWidth:1.8, pointRadius:0, tension:0.1, fill:false },
+        { label:'BB-', data:d.map(r=>r.BB_Lower), borderColor:'rgba(100,116,139,0.5)', borderWidth:0.8, pointRadius:0, borderDash:[3,3], fill:'-2', backgroundColor:'rgba(100,116,139,0.07)' }
+      ]
+    },
+    options: {
+      ...defaults,
+      plugins: { ...defaults.plugins, legend:{ display:false } },
+      scales: { ...defaults.scales, y:{ ...defaults.scales.y, ticks:{ ...defaults.scales.y.ticks, callback:v=>'₹'+v.toLocaleString('en-IN') }}}
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ATR CHART
+// ═══════════════════════════════════════════════════════════════
+function renderATR() {
+  if (!FILTERED.length) return;
+  const d = FILTERED;
+  const labels = d.map(r=>r._dt.toLocaleDateString('en-IN',{month:'short',day:'numeric'}));
+
+  destroyChart('atr');
+  const ctx = document.getElementById('chart-atr').getContext('2d');
+  const defaults = getChartDefaults();
+
+  charts.atr = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label:'ATR', data:d.map(r=>r.ATR), borderColor:'#F59E0B', borderWidth:1.5,
+        pointRadius:0, tension:0.1,
+        fill:{ target:'origin', above:'rgba(245,158,11,0.1)' }
+      }]
+    },
+    options: { ...defaults, plugins:{ ...defaults.plugins, legend:{ display:false }}}
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAGE 3 — RISK KPI
+// ═══════════════════════════════════════════════════════════════
+function renderKPI3() {
+  const sharpe = DASH['Sharpe Ratio'] || DASH['Sharpe'] || 'N/A';
+  const maxDD   = DASH['Max Drawdown'] || DASH['Max DD'] || 'N/A';
+
+  const d = FILTERED;
+  const latest = d[d.length-1] || {};
+  const yearStart = new Date((latest._dt||new Date()).getFullYear(), 0, 1);
+  const ytdFirst = d.find(r => r._dt >= yearStart);
+  const ytd = ytdFirst ? (latest.Close - ytdFirst.Close) / ytdFirst.Close * 100 : 0;
+  const vol30 = last(d, 'Volatility');
+  const d1m = d[Math.max(0,d.length-22*7)];
+  const ret1m = d1m ? (latest.Close-d1m.Close)/d1m.Close*100 : 0;
+
+  document.getElementById('kpi-row-3').innerHTML = `
+    <div class="kpi-card c-green">
+      <div class="kpi-label">Sharpe Ratio</div>
+      <div class="kpi-value v-green">${typeof sharpe === 'number' ? fmtN(sharpe,3) : sharpe}</div>
+      <div class="kpi-sub" style="color:var(--dim);font-size:7px">LOOKUPVALUE · Dashboard</div>
+    </div>
+    <div class="kpi-card c-red bg-red">
+      <div class="kpi-label">Max Drawdown</div>
+      <div class="kpi-value v-red">${typeof maxDD==='number'?pct(maxDD*100):maxDD}</div>
+      <div class="kpi-sub" style="color:var(--dim);font-size:7px">LOOKUPVALUE · Dashboard</div>
+    </div>
+    <div class="kpi-card c-green">
+      <div class="kpi-label">YTD Return %</div>
+      <div class="kpi-value ${ytd>=0?'v-green':'v-red'}">${pct(ytd)}</div>
+    </div>
+    <div class="kpi-card c-amber">
+      <div class="kpi-label">Volatility (Ann.)</div>
+      <div class="kpi-value v-amber">${vol30 ? pct(vol30*100) : 'N/A'}</div>
+    </div>
+    <div class="kpi-card ${ret1m>=0?'c-green':'c-red'}">
+      <div class="kpi-label">1M Return %</div>
+      <div class="kpi-value ${ret1m>=0?'v-green':'v-red'}">${pct(ret1m)}</div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MONTHLY RETURNS CHART
+// ═══════════════════════════════════════════════════════════════
+function renderMonthlyReturns() {
+  if (!MONTHLY.length) return;
+  const data = MONTHLY.sort((a,b) => a.Month.localeCompare(b.Month));
+  const labels = data.map(r => r.Month);
+  const values = data.map(r => r.Return);
+  const colors = values.map(v => v >= 0 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.7)');
+
+  destroyChart('monthly');
+  const ctx = document.getElementById('chart-monthly').getContext('2d');
+  const defaults = getChartDefaults();
+
+  charts.monthly = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data:values, backgroundColor:colors, borderRadius:2 }] },
+    options: {
+      ...defaults,
+      plugins: {
+        ...defaults.plugins,
+        annotation: { annotations: { zero: { type:'line', yMin:0, yMax:0, borderColor:'rgba(229,231,235,0.3)', borderWidth:1 }}}
+      },
+      scales: {
+        ...defaults.scales,
+        x: { ...defaults.scales.x, ticks:{ ...defaults.scales.x.ticks, maxTicksLimit:24 }},
+        y: { ...defaults.scales.y, ticks:{ ...defaults.scales.y.ticks, callback: v=>v+'%' }}
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DRAWDOWN CHART
+// ═══════════════════════════════════════════════════════════════
+function renderDrawdown() {
+  if (!FILTERED.length) return;
+  const d = FILTERED;
+  const labels = d.map(r=>r._dt.toLocaleDateString('en-IN',{month:'short',day:'numeric'}));
+
+  destroyChart('dd');
+  const ctx = document.getElementById('chart-dd').getContext('2d');
+  const defaults = getChartDefaults();
+
+  charts.dd = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label:'Drawdown', data:d.map(r=>r.Drawdown!=null?r.Drawdown*100:null),
+        borderColor:'#EF4444', borderWidth:1.5, pointRadius:0, tension:0.1,
+        fill:{ target:'origin', below:'rgba(239,68,68,0.25)' }
+      }]
+    },
+    options: {
+      ...defaults,
+      plugins: { ...defaults.plugins, legend:{ display:false }},
+      scales: {
+        ...defaults.scales,
+        y: { ...defaults.scales.y, max:0, ticks:{ ...defaults.scales.y.ticks, callback:v=>v+'%' }}
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HEATMAP
+// ═══════════════════════════════════════════════════════════════
+function renderHeatmap() {
+  if (!MONTHLY.length) return;
+  const container = document.getElementById('heatmap');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const years  = [...new Set(MONTHLY.map(r => r.Month.split('-')[0]))].sort();
+
+  const allRets = MONTHLY.map(r => r.Return).filter(v => !isNaN(v));
+  const minRet  = Math.min(...allRets), maxRet = Math.max(...allRets);
+
+  function hmColor(v) {
+    if (isNaN(v) || v == null) return 'rgba(30,45,69,0.3)';
+    const norm = Math.max(-1, Math.min(1, v / 8));
+    if (norm >= 0) return `rgba(16,185,129,${0.1 + norm * 0.8})`;
+    return `rgba(239,68,68,${0.1 + Math.abs(norm) * 0.8})`;
+  }
+  function textColor(v) {
+    if (isNaN(v)||v==null) return 'var(--dim)';
+    const abs = Math.abs(v);
+    if (abs > 4) return '#fff';
+    return abs > 2 ? 'rgba(255,255,255,0.8)' : 'var(--muted)';
+  }
+
+  container.style.gridTemplateColumns = `40px repeat(12,1fr)`;
+
+  let html = `<div class="hm-cell hm-header"></div>`;
+  months.forEach(m => html += `<div class="hm-cell hm-header">${m}</div>`);
+
+  years.forEach(yr => {
+    html += `<div class="hm-cell hm-year">${yr}</div>`;
+    months.forEach((m, mi) => {
+      const key  = `${yr}-${String(mi+1).padStart(2,'0')}`;
+      const row  = MONTHLY.find(r => r.Month === key);
+      const ret  = row ? row.Return : null;
+      const disp = ret != null ? fmtN(ret,1) : '—';
+      html += `<div class="hm-cell" 
+        style="background:${hmColor(ret)};color:${textColor(ret)}"
+        title="${key}: ${ret!=null?pct(ret):'N/A'}"
+        onclick="drillthrough('${key}')">${disp}</div>`;
+    });
+  });
+  container.innerHTML = html;
+}
+
+function drillthrough(month) {
+  // Switch to data table page and filter by month
+  showTab(4);
+  document.getElementById('table-search').value = month.substring(0,7);
+  filterTable();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATA TABLE
+// ═══════════════════════════════════════════════════════════════
+function setTableFilter(f) {
+  tableFilter = f;
+  document.querySelectorAll('.table-controls .preset-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tbl-'+f).classList.add('active');
+  tablePage = 1;
+  renderTable();
+}
+
+function filterTable() {
+  tableSearch = document.getElementById('table-search').value.toLowerCase();
+  tablePage = 1;
+  renderTable();
+}
+
+let sortDir = {};
+function sortTable(col) {
+  if (sortDir[col] === undefined) sortDir[col] = false;
+  sortDir[col] = !sortDir[col];
+  tableData.sort((a,b) => {
+    const av = a[col], bv = b[col];
+    if (av == null) return 1; if (bv == null) return -1;
+    return sortDir[col] ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+  });
+  renderTable();
+}
+
+function renderTable() {
+  let data = [...tableData];
+
+  // Apply filter
+  if (tableFilter === 'highvol') {
+    const avg = data.reduce((s,r)=>s+r.Volume,0)/data.length;
+    data = data.filter(r => r.Volume > avg * 1.5);
+  } else if (tableFilter === 'ob') {
+    data = data.filter(r => r.RSI >= 70);
+  } else if (tableFilter === 'os') {
+    data = data.filter(r => r.RSI <= 30);
+  }
+
+  // Search
+  if (tableSearch) {
+    data = data.filter(r => {
+      const dt = r.Datetime ? String(r.Datetime).toLowerCase() : '';
+      return dt.includes(tableSearch) ||
+             String(r.Close||'').includes(tableSearch);
+    });
+  }
+
+  const total = data.length;
+  const pages = Math.ceil(total / ROWS_PER_PAGE);
+  const start = (tablePage - 1) * ROWS_PER_PAGE;
+  const slice = data.slice(start, start + ROWS_PER_PAGE);
+
+  // Max volume for data bars
+  const maxVol = Math.max(...data.map(r=>r.Volume||0));
+  const maxRetAbs = Math.max(...data.map(r=>Math.abs(r.Return||0)));
+
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = slice.map(r => {
+    const retColor = r.Return >= 0 ? 'var(--green)' : 'var(--red)';
+    const macdColor = (r.MACD||0) >= 0 ? 'var(--green)' : 'var(--red)';
+    const rsiIcon  = r.RSI >= 70 ? '<span class="rsi-icon" style="color:var(--red)">⚠</span>' :
+                     r.RSI <= 30 ? '<span class="rsi-icon" style="color:var(--green)">✓</span>' :
+                                   '<span class="rsi-icon" style="color:var(--dim)">→</span>';
+    const volPct = maxVol ? (r.Volume||0)/maxVol*100 : 0;
+    const retPct = maxRetAbs ? Math.abs(r.Return||0)/maxRetAbs*100 : 0;
+    const ddColor = (r.Drawdown||0) < -0.1 ? 'var(--red)' : 'var(--dim)';
+
+    return `<tr>
+      <td>${r.Datetime || ''}</td>
+      <td>₹${fmtN(r.Open,2)}</td>
+      <td>₹${fmtN(r.High,2)}</td>
+      <td>₹${fmtN(r.Low,2)}</td>
+      <td style="color:var(--text);font-weight:600">₹${fmtN(r.Close,2)}</td>
+      <td class="bar-cell">
+        <div class="data-bar" style="width:${volPct.toFixed(0)}%;background:rgba(37,99,235,0.35)"></div>
+        <span style="position:relative;z-index:1">${fmtK(r.Volume||0)}</span>
+      </td>
+      <td class="bar-cell" style="color:${retColor}">
+        <div class="data-bar" style="width:${retPct.toFixed(0)}%;background:${r.Return>=0?'rgba(16,185,129,0.35)':'rgba(239,68,68,0.35)'}"></div>
+        <span style="position:relative;z-index:1">${r.Return!=null?pct(r.Return*100):'—'}</span>
+      </td>
+      <td style="color:${r.RSI>=70?'var(--red)':r.RSI<=30?'var(--green)':'var(--muted)'}">${rsiIcon}${fmtN(r.RSI,1)}</td>
+      <td style="color:${macdColor}">${fmtN(r.MACD,3)}</td>
+      <td>₹${fmtN(r.ATR,2)}</td>
+      <td style="color:${ddColor}">${r.Drawdown!=null?pct((r.Drawdown||0)*100):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Pagination
+  document.getElementById('table-info').textContent =
+    `Showing ${start+1}–${Math.min(start+ROWS_PER_PAGE,total)} of ${total.toLocaleString()} rows`;
+
+  const btnContainer = document.getElementById('page-btns');
+  let btns = '';
+  const showPages = [];
+  if (pages <= 7) { for(let i=1;i<=pages;i++) showPages.push(i); }
+  else {
+    showPages.push(1);
+    if (tablePage > 3) showPages.push('…');
+    for(let i=Math.max(2,tablePage-1); i<=Math.min(pages-1,tablePage+1); i++) showPages.push(i);
+    if (tablePage < pages-2) showPages.push('…');
+    showPages.push(pages);
+  }
+  showPages.forEach(p => {
+    if (p === '…') btns += `<span class="page-btn" style="cursor:default;pointer-events:none">…</span>`;
+    else btns += `<button class="page-btn ${p===tablePage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+  });
+  btnContainer.innerHTML = btns;
+}
+
+function goPage(p) { tablePage = p; renderTable(); }
+
+// ═══════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════
+function showTab(n) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===n-1));
+  document.querySelectorAll('.page').forEach((p,i) => p.classList.toggle('active', i===n-1));
+  // Resize charts after tab switch
+  setTimeout(() => { Object.values(charts).forEach(c => { try { c.resize(); } catch(e){} }); }, 50);
+}
+</script>
+</body>
+</html>
