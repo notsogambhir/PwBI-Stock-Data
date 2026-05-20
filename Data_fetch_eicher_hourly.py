@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, date
+from sqlalchemy import create_engine, text
 
 TICKER = "EICHERMOT.NS"
 PERIOD = "2y"           # yfinance max for hourly data is 730 days
@@ -133,7 +134,6 @@ def dashboard(df, sharpe, max_dd):
     bars_52w = 252 * BARS_PER_DAY
 
     metrics = {
-        "Last Updated"  : datetime.now().strftime("%d-%b-%Y %H:%M"),
         "CMP"           : latest["Close"],
         "Change"        : latest["Change"],
         "Change %"      : (latest["Close"] / prev["Close"] - 1) * 100,
@@ -165,6 +165,41 @@ def save(df_stock, df_month, df_dash):
         df_month.to_excel(writer, sheet_name="Monthly Returns", index=False)
         df_dash.to_excel(writer,  sheet_name="Dashboard",       index=False)
 
+def save_to_supabase(df_stock, df_month, df_dash):
+    # Using the provided session pooler connection string
+    CON_STR = "postgresql://postgres.yjhklvtlqvlrftipvdjv:Gambhirs123@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres"
+    
+    print("Uploading to Supabase (SQL)...")
+    try:
+        engine = create_engine(CON_STR)
+        
+        # 1. Stock Data
+        df_s = df_stock.copy()
+        df_s.columns = [c.lower() for c in df_s.columns]
+        
+        # 2. Monthly Returns
+        df_m = df_month.copy()
+        df_m.columns = [c.lower() if c != 'Return_%' else c for c in df_m.columns]
+        
+        # 3. Dashboard Metrics
+        df_d = df_dash.copy()
+        df_d.columns = [c.lower() for c in df_d.columns]
+
+        with engine.begin() as conn:
+            # Clear existing data and replace with fresh data
+            print("  Syncing stock_data (hourly based)...")
+            df_s.to_sql('stock_data', conn, if_exists='replace', index=False)
+            
+            print("  Syncing monthly_returns (hourly based)...")
+            df_m.to_sql('monthly_returns', conn, if_exists='replace', index=False)
+            
+            print("  Syncing dashboard_metrics (hourly based)...")
+            df_d.to_sql('dashboard_metrics', conn, if_exists='replace', index=False)
+            
+        print("Supabase sync successful.")
+    except Exception as e:
+        print(f"Error syncing with Supabase: {e}")
+
 
 # ─────────────────────────────────────────
 # MAIN
@@ -188,6 +223,8 @@ def main():
 
     print("Saving Excel...")
     save(df, df_month, df_dash)
+
+    save_to_supabase(df, df_month, df_dash)
 
     print("Done.")
 
